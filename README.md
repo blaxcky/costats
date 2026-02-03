@@ -1,12 +1,16 @@
-# costats
+# costats <img src="src/costats.App/Resources/tray-icon.ico" width="20" height="20" alt="costats icon" />
 
 A lightweight Windows tray app that shows live status for AI coding providers like Codex and Claude Code, plus token usage and spend.
+
+<p align="center">
+  <img src="assets/image.png" alt="costats widget screenshot" width="360" />
+</p>
 
 ## What it shows
 - Session and weekly utilization with reset timers and pace indicators.
 - Daily tokens + cost and 30-day rolling tokens + cost.
 - Overage or credit balance when available.
-- One-tap tray widget and a global hotkey (e.g., Alt+S).
+- One-tap tray widget and a global hotkey (`Ctrl+Alt+U`).
 
 ## Install
 
@@ -20,7 +24,7 @@ Downloads the latest release, installs per-user and creates a Start Menu shortcu
 
 ## Usage
 - Click the tray icon to open the widget.
-- Press `Alt+S` to toggle the widget (configurable; default is `Alt+S`).
+- Press `Ctrl+Alt+U` to toggle the widget (configurable).
 - Open Settings to set refresh interval or start at login.
 
 ## Configuration
@@ -29,7 +33,7 @@ Settings are stored at:
 
 Common settings:
 - `RefreshMinutes` (default 5)
-- `Hotkey` (e.g., `Alt+S`)
+- `Hotkey` (default `Ctrl+Alt+U`)
 - `StartAtLogin` (true/false)
 
 Optional environment variable:
