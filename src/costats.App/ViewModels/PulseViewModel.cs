@@ -107,19 +107,23 @@ public sealed partial class PulseViewModel : ObservableObject, IObserver<PulseSt
         {
             IsRefreshing = value.IsRefreshing;
 
-            Providers.Clear();
-            foreach (var (providerId, reading) in value.Providers)
+            // Only update provider data if we have providers (keep last state during refresh)
+            if (value.Providers.Count > 0)
             {
-                var displayName = _displayNames.TryGetValue(providerId, out var name) ? name : providerId;
-                var vm = ProviderPulseViewModel.FromReading(reading, displayName);
-                Providers.Add(vm);
-                if (providerId.Equals("claude", StringComparison.OrdinalIgnoreCase))
+                Providers.Clear();
+                foreach (var (providerId, reading) in value.Providers)
                 {
-                    Claude = vm;
-                }
-                else if (providerId.Equals("codex", StringComparison.OrdinalIgnoreCase))
-                {
-                    Codex = vm;
+                    var displayName = _displayNames.TryGetValue(providerId, out var name) ? name : providerId;
+                    var vm = ProviderPulseViewModel.FromReading(reading, displayName);
+                    Providers.Add(vm);
+                    if (providerId.Equals("claude", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Claude = vm;
+                    }
+                    else if (providerId.Equals("codex", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Codex = vm;
+                    }
                 }
             }
 

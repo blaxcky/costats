@@ -206,6 +206,7 @@ public sealed class PulseOrchestrator : BackgroundService, IPulseOrchestrator
 
     private void PublishRefreshing(RefreshTrigger trigger)
     {
+        // Show last known good state with loading indicator
         var baseState = _lastState ?? new PulseState(
             new Dictionary<string, ProviderReading>(StringComparer.OrdinalIgnoreCase),
             _clock.UtcNow,

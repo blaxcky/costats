@@ -247,12 +247,6 @@ public sealed partial class ProviderPulseViewModel : ObservableObject
 
         if (limit is null || limit <= 0)
         {
-            // If no limit, show as percentage of a reasonable estimate
-            if (used > 0)
-            {
-                // Show some progress for token-based display without limits
-                return Math.Min(100, used.Value / 10000.0 * 100);
-            }
             return 0;
         }
 
