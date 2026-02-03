@@ -43,6 +43,7 @@ namespace costats.App.Services
 
         private static (Key key, ModifierKeys modifiers) ParseHotkey(string? hotkey)
         {
+            // Default: Ctrl+Alt+U
             if (string.IsNullOrWhiteSpace(hotkey))
             {
                 return (Key.U, ModifierKeys.Control | ModifierKeys.Alt);

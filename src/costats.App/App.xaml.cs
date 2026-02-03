@@ -22,12 +22,114 @@ namespace costats.App
     public partial class App : System.Windows.Application
     {
         private IHost? _host;
+        private SingleInstanceCoordinator? _singleInstance;
 
         protected override void OnStartup(System.Windows.StartupEventArgs e)
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             base.OnStartup(e);
 
+            RegisterExceptionHandlers();
+
+            _singleInstance = new SingleInstanceCoordinator("costats");
+            if (!_singleInstance.IsPrimary)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SingleInstanceCoordinator.SignalPrimaryAsync(
+                            _singleInstance.PipeName,
+                            ActivationMessage.ShowWidget,
+                            TimeSpan.FromSeconds(2));
+                    }
+                    catch
+                    {
+                        // Ignore activation errors on secondary instances.
+                    }
+                    finally
+                    {
+                        Dispatcher.Invoke(() => Shutdown(0));
+                    }
+                });
+                return;
+            }
+
+            _ = InitializeAsync();
+        }
+
+        protected override async void OnExit(System.Windows.ExitEventArgs e)
+        {
+            try
+            {
+                if (_host is not null)
+                {
+                    await _host.StopAsync();
+                    _host.Dispose();
+                }
+            }
+            catch
+            {
+                // Ignore shutdown failures.
+            }
+
+            _singleInstance?.Dispose();
+            Log.CloseAndFlush();
+            base.OnExit(e);
+        }
+
+        private async Task InitializeAsync()
+        {
+            try
+            {
+                var settingsStore = new JsonSettingsStore();
+                var settings = await settingsStore.LoadAsync(CancellationToken.None).ConfigureAwait(false);
+
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    var tray = InitializeHost(settingsStore, settings);
+                    _ = StartListenerAsync(tray);
+                    tray.ShowWidget();
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(
+                    $"Startup error: {ex.Message}\n\n{ex.StackTrace}",
+                    "costats Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                Shutdown(1);
+            }
+        }
+
+        private void RegisterExceptionHandlers()
+        {
+            DispatcherUnhandledException += (_, args) =>
+            {
+                Log.Error(args.Exception, "Unhandled UI exception");
+                // Mark as handled to prevent app crash - log and continue
+                args.Handled = true;
+                // Only shutdown for truly fatal errors, not routine exceptions
+            };
+
+            TaskScheduler.UnobservedTaskException += (_, args) =>
+            {
+                Log.Error(args.Exception, "Unobserved task exception");
+                args.SetObserved();
+            };
+
+            AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            {
+                if (args.ExceptionObject is Exception ex)
+                {
+                    Log.Error(ex, "Unhandled domain exception");
+                }
+            };
+        }
+
+        private TrayHost InitializeHost(ISettingsStore settingsStore, AppSettings settings)
+        {
             _host = Host.CreateDefaultBuilder()
                 .ConfigureAppConfiguration(config =>
                 {
@@ -42,17 +144,13 @@ namespace costats.App
                 })
                 .ConfigureServices(services =>
                 {
-                    services.AddSingleton<ISettingsStore, JsonSettingsStore>();
-                    services.AddSingleton(sp =>
-                        sp.GetRequiredService<ISettingsStore>()
-                            .LoadAsync(CancellationToken.None)
-                            .GetAwaiter()
-                            .GetResult());
+                    services.AddSingleton<ISettingsStore>(settingsStore);
+                    services.AddSingleton(settings);
 
                     services.AddOptions<PulseOptions>()
-                        .Configure<AppSettings>((options, settings) =>
+                        .Configure<AppSettings>((options, appSettings) =>
                         {
-                            var minutes = Math.Max(1, settings.RefreshMinutes);
+                            var minutes = Math.Max(1, appSettings.RefreshMinutes);
                             options.RefreshInterval = TimeSpan.FromMinutes(minutes);
                         });
 
@@ -73,42 +171,32 @@ namespace costats.App
                     services.AddSingleton<SettingsViewModel>();
                     services.AddSingleton<GlassWidgetWindow>();
                     services.AddSingleton<SettingsWindow>();
+                    services.AddSingleton<TaskbarPositionService>();
                     services.AddSingleton<TrayHost>();
                     services.AddSingleton<HotkeyService>();
                 })
                 .Build();
 
-            try
-            {
-                _host.Start();
+            _host.Start();
 
-                var tray = _host.Services.GetRequiredService<TrayHost>();
-                _ = _host.Services.GetRequiredService<HotkeyService>();
-
-                // Show widget on first launch, then use tray/hotkey
-                tray.ShowWidget();
-            }
-            catch (Exception ex)
-            {
-                System.Windows.MessageBox.Show(
-                    $"Startup error: {ex.Message}\n\n{ex.StackTrace}",
-                    "costats Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                Shutdown(1);
-            }
+            _ = _host.Services.GetRequiredService<HotkeyService>();
+            return _host.Services.GetRequiredService<TrayHost>();
         }
 
-        protected override async void OnExit(System.Windows.ExitEventArgs e)
+        private async Task StartListenerAsync(TrayHost tray)
         {
-            if (_host is not null)
+            if (_singleInstance is null)
             {
-                await _host.StopAsync();
-                _host.Dispose();
+                return;
             }
 
-            Log.CloseAndFlush();
-            base.OnExit(e);
+            await _singleInstance.StartListenerAsync(async message =>
+            {
+                if (message == ActivationMessage.ShowWidget)
+                {
+                    await Dispatcher.InvokeAsync(() => tray.ShowWidget());
+                }
+            }, CancellationToken.None).ConfigureAwait(false);
         }
     }
 }

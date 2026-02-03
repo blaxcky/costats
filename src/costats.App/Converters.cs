@@ -76,6 +76,24 @@ public sealed class BoolToVisibilityConverter : IValueConverter
 }
 
 /// <summary>
+/// Negates a boolean value.
+/// </summary>
+public sealed class BoolNegationConverter : IValueConverter
+{
+    public static BoolNegationConverter Instance { get; } = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        return value is true ? false : true;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotSupportedException();
+    }
+}
+
+/// <summary>
 /// Converts an integer index to boolean for RadioButton binding.
 /// Returns true if the value equals the ConverterParameter.
 /// </summary>

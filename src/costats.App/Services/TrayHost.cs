@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using H.NotifyIcon;
 using costats.App.ViewModels;
 using costats.Application.Pulse;
+using costats.Core.Pulse;
+using Microsoft.Win32;
 
 namespace costats.App.Services
 {
@@ -14,16 +16,21 @@ namespace costats.App.Services
         private readonly GlassWidgetWindow _widgetWindow;
         private readonly SettingsWindow _settingsWindow;
         private readonly IPulseOrchestrator _pulseOrchestrator;
+        private readonly PulseViewModel _viewModel;
+        private readonly TaskbarPositionService _taskbarPosition;
 
         public TrayHost(
             PulseViewModel viewModel,
             GlassWidgetWindow widgetWindow,
             SettingsWindow settingsWindow,
-            IPulseOrchestrator pulseOrchestrator)
+            IPulseOrchestrator pulseOrchestrator,
+            TaskbarPositionService taskbarPosition)
         {
+            _viewModel = viewModel;
             _widgetWindow = widgetWindow;
             _settingsWindow = settingsWindow;
             _pulseOrchestrator = pulseOrchestrator;
+            _taskbarPosition = taskbarPosition;
 
             _taskbarIcon = new TaskbarIcon();
             _taskbarIcon.Icon = CreateIcon();
@@ -31,6 +38,8 @@ namespace costats.App.Services
             _taskbarIcon.ContextMenu = BuildContextMenu();
             _taskbarIcon.TrayLeftMouseUp += OnTrayLeftClick;
             _taskbarIcon.ForceCreate(enablesEfficiencyMode: false);
+
+            SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         }
 
         private void OnTrayLeftClick(object? sender, EventArgs e)
@@ -82,7 +91,7 @@ namespace costats.App.Services
             showItem.Click += (_, _) => ShowWidget();
 
             var refreshItem = new MenuItem { Header = "Refresh Now" };
-            refreshItem.Click += async (_, _) => await _pulseOrchestrator.RefreshOnceAsync(CancellationToken.None);
+            refreshItem.Click += async (_, _) => await _pulseOrchestrator.RefreshOnceAsync(RefreshTrigger.Manual, CancellationToken.None);
 
             var settingsItem = new MenuItem { Header = "Settings..." };
             settingsItem.Click += (_, _) => ShowSettings();
@@ -116,17 +125,27 @@ namespace costats.App.Services
 
         public void ShowWidget()
         {
-            // Position near the system tray (bottom-right)
-            var workArea = SystemParameters.WorkArea;
-            _widgetWindow.Left = workArea.Right - _widgetWindow.Width - 12;
-            _widgetWindow.Top = workArea.Bottom - _widgetWindow.Height - 12;
+            PositionWidget();
 
-            if (!_widgetWindow.IsVisible)
+            var wasVisible = _widgetWindow.IsVisible;
+
+            if (!wasVisible)
             {
                 _widgetWindow.Show();
             }
 
             _widgetWindow.Activate();
+
+            // Silent refresh for the currently selected provider when panel opens
+            if (!wasVisible)
+            {
+                _ = RefreshSelectedProviderAsync();
+            }
+        }
+
+        private Task RefreshSelectedProviderAsync()
+        {
+            return _viewModel.RefreshSelectedProviderSilentlyAsync();
         }
 
         public void HideWidget()
@@ -148,9 +167,25 @@ namespace costats.App.Services
 
         public void Dispose()
         {
+            SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
             _taskbarIcon.Dispose();
             _widgetWindow.Close();
             _settingsWindow.Close();
+        }
+
+        private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            if (_widgetWindow.IsVisible)
+            {
+                PositionWidget();
+            }
+        }
+
+        private void PositionWidget()
+        {
+            var position = _taskbarPosition.GetWidgetPosition(_widgetWindow.Width, _widgetWindow.Height, 12);
+            _widgetWindow.Left = position.X;
+            _widgetWindow.Top = position.Y;
         }
     }
 }

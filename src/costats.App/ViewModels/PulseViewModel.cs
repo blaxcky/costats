@@ -41,20 +41,55 @@ public sealed partial class PulseViewModel : ObservableObject, IObserver<PulseSt
     [ObservableProperty]
     private int selectedTabIndex;
 
+    [ObservableProperty]
+    private bool isRefreshing;
+
     /// <summary>
     /// Returns the currently selected provider based on tab index.
     /// </summary>
     public ProviderPulseViewModel SelectedProvider => SelectedTabIndex == 0 ? Codex : Claude;
 
+    /// <summary>
+    /// Returns the provider ID for the currently selected tab.
+    /// </summary>
+    public string SelectedProviderId => SelectedTabIndex == 0 ? "codex" : "claude";
+
     partial void OnSelectedTabIndexChanged(int value)
     {
         OnPropertyChanged(nameof(SelectedProvider));
+        OnPropertyChanged(nameof(SelectedProviderId));
+
+        // Silent refresh when switching tabs
+        _ = RefreshSelectedProviderSilentlyAsync();
+    }
+
+    /// <summary>
+    /// Silently refresh the currently selected provider (no loading indicator).
+    /// </summary>
+    public async Task RefreshSelectedProviderSilentlyAsync()
+    {
+        try
+        {
+            await _orchestrator.RefreshProviderAsync(SelectedProviderId, CancellationToken.None);
+        }
+        catch
+        {
+            // Silent refresh failures are non-blocking
+        }
     }
 
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        await _orchestrator.RefreshOnceAsync(CancellationToken.None);
+        try
+        {
+            await _orchestrator.RefreshOnceAsync(RefreshTrigger.Manual, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't crash - refresh failures should not take down the app
+            System.Diagnostics.Debug.WriteLine($"Refresh failed: {ex.Message}");
+        }
     }
 
     public void OnNext(PulseState value)
@@ -63,6 +98,8 @@ public sealed partial class PulseViewModel : ObservableObject, IObserver<PulseSt
         // This allows window deactivation to work even during data updates
         System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
         {
+            IsRefreshing = value.IsRefreshing;
+
             Providers.Clear();
             foreach (var (providerId, reading) in value.Providers)
             {

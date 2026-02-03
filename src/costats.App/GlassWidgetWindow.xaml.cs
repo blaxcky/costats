@@ -28,10 +28,17 @@ namespace costats.App
 
         private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Allow dragging the window
-            if (e.ButtonState == MouseButtonState.Pressed)
+            // Allow dragging the window, but only if clicking on the background (not on buttons/controls)
+            if (e.ButtonState == MouseButtonState.Pressed && e.OriginalSource is System.Windows.Controls.Border or System.Windows.Controls.Grid or Window)
             {
-                DragMove();
+                try
+                {
+                    DragMove();
+                }
+                catch (InvalidOperationException)
+                {
+                    // DragMove can throw if called at wrong time
+                }
             }
         }
 

@@ -27,9 +27,9 @@ jobs:
         platform: [win-x64, win-arm64]
         include:
           - platform: win-x64
-            artifact_name: costats-windows-x64
+            artifact_name: costats-win-x64
           - platform: win-arm64
-            artifact_name: costats-windows-arm64
+            artifact_name: costats-win-arm64
 
     steps:
       - name: Checkout
@@ -74,13 +74,16 @@ jobs:
       - name: Create archive
         shell: pwsh
         run: |
-          Compress-Archive -Path ./publish/${{ matrix.platform }}/* -DestinationPath ./${{ matrix.artifact_name }}.zip
+          $zipName = "${{ matrix.artifact_name }}-v${{ steps.version.outputs.VERSION }}.zip"
+          Compress-Archive -Path ./publish/${{ matrix.platform }}/* -DestinationPath ./$zipName
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_OUTPUT
+        id: archive
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ./${{ matrix.artifact_name }}.zip
+          path: ./${{ steps.archive.outputs.ZIP_NAME }}
           retention-days: 30
 
   release:
@@ -127,8 +130,8 @@ jobs:
           echo "" >> CHANGELOG.md
           echo "| Platform | Download |" >> CHANGELOG.md
           echo "|----------|----------|" >> CHANGELOG.md
-          echo "| Windows x64 | \`costats-windows-x64.zip\` |" >> CHANGELOG.md
-          echo "| Windows ARM64 | \`costats-windows-arm64.zip\` |" >> CHANGELOG.md
+          echo "| Windows x64 | \`costats-win-x64-v$VERSION.zip\` |" >> CHANGELOG.md
+          echo "| Windows ARM64 | \`costats-win-arm64-v$VERSION.zip\` |" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "## Installation" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
@@ -146,8 +149,8 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.version.outputs.VERSION, 'alpha') || contains(steps.version.outputs.VERSION, 'beta') || contains(steps.version.outputs.VERSION, 'rc') }}
           files: |
-            ./artifacts/costats-windows-x64/costats-windows-x64.zip
-            ./artifacts/costats-windows-arm64/costats-windows-arm64.zip
+            ./artifacts/costats-win-x64/*.zip
+            ./artifacts/costats-win-arm64/*.zip
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

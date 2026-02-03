@@ -19,8 +19,17 @@ public sealed class JsonSettingsStore : ISettingsStore
         }
 
         await using var stream = File.OpenRead(path);
-        var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, _serializerOptions, cancellationToken);
-        return settings ?? new AppSettings();
+        try
+        {
+            var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, _serializerOptions, cancellationToken)
+                .ConfigureAwait(false);
+            return settings ?? new AppSettings();
+        }
+        catch (JsonException)
+        {
+            BackupCorruptSettings(path);
+            return new AppSettings();
+        }
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken)
@@ -29,12 +38,32 @@ public sealed class JsonSettingsStore : ISettingsStore
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
         await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, settings, _serializerOptions, cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, settings, _serializerOptions, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static string GetSettingsPath()
     {
         var basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         return Path.Combine(basePath, "costats", "settings.json");
+    }
+
+    private static void BackupCorruptSettings(string path)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(directory))
+            {
+                return;
+            }
+
+            var backupPath = Path.Combine(directory, "settings.bad.json");
+            File.Copy(path, backupPath, true);
+        }
+        catch
+        {
+            // Ignore backup failures.
+        }
     }
 }
