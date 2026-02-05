@@ -27,6 +27,21 @@ Downloads the latest release, installs per-user and creates a Start Menu shortcu
 - Press `Ctrl+Alt+U` to toggle the widget (configurable).
 - Open Settings to set refresh interval or start at login.
 
+## Insights Card CLI
+Generate a shareable Claude Code Insights card from `report.html`:
+
+```powershell
+npx costats ccinsights
+```
+
+By default it reads `~/.claude/usage-data/report.html` and writes the PNG to `~/.costats/images/costats-insights.png`.
+
+Optional flags:
+- `--json <path>` to export the extracted JSON alongside the PNG.
+- `--no-open` to avoid opening the image viewer.
+Requires an active Claude Code OAuth login (uses `~/.claude/.credentials.json`).
+First run may download a Playwright Chromium binary for rendering.
+
 ## Configuration
 Settings are stored at:
 `%LOCALAPPDATA%\costats\settings.json`

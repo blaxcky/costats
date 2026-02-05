@@ -43,3 +43,5 @@ CLAUDE.md
 AGENTS.md
 .claude/
 .codex/
+
+**/node_modules/
