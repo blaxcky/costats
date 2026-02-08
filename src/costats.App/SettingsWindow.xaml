@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:costats.App"
         Title="Settings"
         Width="360"
-        Height="320"
+        Height="350"
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -22,13 +22,13 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <!-- Color palette matching main window -->
-        <Color x:Key="BgColor">#E8E3F2</Color>
+        <!-- Light color palette with WCAG AA contrast -->
+        <Color x:Key="BgColor">#F5F3FA</Color>
         <Color x:Key="TextPrimary">#1E1B2E</Color>
-        <Color x:Key="TextSecondary">#4A4760</Color>
-        <Color x:Key="TextMuted">#7A7890</Color>
-        <Color x:Key="TextFaint">#9A98A8</Color>
-        <Color x:Key="DividerColor">#D0CDE0</Color>
+        <Color x:Key="TextSecondary">#3D3A52</Color>
+        <Color x:Key="TextMuted">#5C5975</Color>
+        <Color x:Key="TextFaint">#6E6B86</Color>
+        <Color x:Key="DividerColor">#D5D2E4</Color>
         <Color x:Key="AccentColor">#6366F1</Color>
 
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
@@ -40,7 +40,7 @@
 
         <!-- ComboBox Style -->
         <Style x:Key="SettingsComboBox" TargetType="ComboBox">
-            <Setter Property="Background" Value="#20FFFFFF" />
+            <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -59,7 +59,7 @@
                     <ControlTemplate TargetType="CheckBox">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Border x:Name="CheckBorder" Width="20" Height="20" CornerRadius="4"
-                                    Background="#20FFFFFF" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
+                                    Background="#FFFFFF" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
                                     VerticalAlignment="Center">
                                 <Path x:Name="CheckMark" Data="M3,7 L7,11 L13,3" Stroke="White" StrokeThickness="2"
                                       Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -84,7 +84,7 @@
 
         <!-- Button Style -->
         <Style x:Key="SettingsButton" TargetType="Button">
-            <Setter Property="Background" Value="#20FFFFFF" />
+            <Setter Property="Background" Value="#0A000000" />
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -102,10 +102,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#30FFFFFF" />
+                                <Setter TargetName="border" Property="Background" Value="#14000000" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#40FFFFFF" />
+                                <Setter TargetName="border" Property="Background" Value="#1E000000" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -114,10 +114,8 @@
         </Style>
     </Window.Resources>
 
-    <Border CornerRadius="16" BorderBrush="#50A0A0C0" BorderThickness="1">
-        <Border.Background>
-            <SolidColorBrush Color="{StaticResource BgColor}" Opacity="0.95" />
-        </Border.Background>
+    <Border CornerRadius="16" BorderBrush="#30A0A0C0" BorderThickness="1"
+            Background="#F5F3FA">
         <Grid Margin="20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -173,11 +171,17 @@
             </StackPanel>
 
             <!-- Footer -->
-            <StackPanel Grid.Row="3" Margin="0,20,0,0">
-                <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,0,0,14" />
-                <TextBlock Text="Changes are saved automatically."
-                           FontSize="11" Foreground="{StaticResource TextFaintBrush}"
-                           HorizontalAlignment="Center" />
+            <StackPanel Grid.Row="3" Margin="0,16,0,0">
+                <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,0,0,12" />
+                <DockPanel>
+                    <TextBlock Text="{Binding Version, StringFormat='v{0}'}"
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               DockPanel.Dock="Right" HorizontalAlignment="Right"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="Changes are saved automatically."
+                               FontSize="11" Foreground="{StaticResource TextFaintBrush}"
+                               DockPanel.Dock="Left" VerticalAlignment="Center" />
+                </DockPanel>
             </StackPanel>
         </Grid>
     </Border>

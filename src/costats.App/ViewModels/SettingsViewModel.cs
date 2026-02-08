@@ -1,3 +1,4 @@
+using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using costats.Application.Pulse;
@@ -29,6 +30,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool startAtLogin;
+
+    public string Version { get; } =
+        (Assembly.GetEntryAssembly()?
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion ?? "unknown")
+        .Split('+')[0];
 
     public static IReadOnlyList<RefreshOption> RefreshOptions { get; } = new[]
     {
