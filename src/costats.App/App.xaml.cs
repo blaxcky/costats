@@ -1,22 +1,4 @@
-using System.Windows;
-using costats.App.Services;
-using costats.App.Services.Updates;
-using costats.App.ViewModels;
-using costats.Application.Abstractions;
-using costats.Application.Pulse;
-using costats.Application.Security;
-using costats.Application.Settings;
-using costats.Application.Shell;
-using costats.Infrastructure.Providers;
-using costats.Infrastructure.Pulse;
-using costats.Infrastructure.Security;
-using costats.Infrastructure.Settings;
-using costats.Infrastructure.Time;
-using costats.Infrastructure.Windows;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Serilog;
+using System.Reflection;
 
 namespace costats.App
 {
@@ -31,7 +13,11 @@ namespace costats.App
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             base.OnStartup(e);
 
+            BootstrapEarlyLogger();
             RegisterExceptionHandlers();
+
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            Log.Information("costats starting (v{Version}, PID {Pid})", version, Environment.ProcessId);
 
             _singleInstance = new SingleInstanceCoordinator("costats");
             if (!_singleInstance.IsPrimary)
@@ -62,6 +48,7 @@ namespace costats.App
 
         protected override async void OnExit(System.Windows.ExitEventArgs e)
         {
+            Log.Information("Application exiting (ExitCode={ExitCode})", e.ApplicationExitCode);
             try
             {
                 if (_host is not null)
@@ -70,9 +57,9 @@ namespace costats.App
                     _host.Dispose();
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore shutdown failures.
+                Log.Warning(ex, "Error during host shutdown");
             }
 
             _singleInstance?.Dispose();
@@ -88,6 +75,7 @@ namespace costats.App
                 _updateCoordinator = new StartupUpdateCoordinator(UpdateOptions.FromConfiguration(startupConfiguration));
                 if (await _updateCoordinator.TryApplyPendingUpdateAsync(CancellationToken.None).ConfigureAwait(false))
                 {
+                    Log.Information("Pending update is being applied, shutting down for update");
                     await Dispatcher.InvokeAsync(() => Shutdown(0));
                     return;
                 }
@@ -98,17 +86,21 @@ namespace costats.App
                 await Dispatcher.InvokeAsync(() =>
                 {
                     var tray = InitializeHost(settingsStore, settings);
-                    _ = StartListenerAsync(tray);
+                    LogFireAndForget(StartListenerAsync(tray), "SingleInstanceListener");
                     tray.ShowWidget();
                 });
 
                 if (_updateCoordinator is not null)
                 {
-                    _ = Task.Run(() => _updateCoordinator.CheckAndStageUpdateAsync(CancellationToken.None));
+                    LogFireAndForget(
+                        Task.Run(() => _updateCoordinator.CheckAndStageUpdateAsync(CancellationToken.None)),
+                        "UpdateCheck");
                 }
+
             }
             catch (Exception ex)
             {
+                Log.Fatal(ex, "Startup failed");
                 System.Windows.MessageBox.Show(
                     $"Startup error: {ex.Message}\n\n{ex.StackTrace}",
                     "costats Error",
@@ -127,14 +119,36 @@ namespace costats.App
                 .Build();
         }
 
+        /// <summary>
+        /// Bootstraps Serilog before the host is built so that startup and
+        /// exception-handler logs reach the file sink even if host init fails.
+        /// The host builder replaces this logger with the fully-configured one.
+        /// </summary>
+        private static void BootstrapEarlyLogger()
+        {
+            var logDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "costats", "logs");
+            Directory.CreateDirectory(logDir);
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .WriteTo.Debug()
+                .WriteTo.File(
+                    Path.Combine(logDir, "costats-.log"),
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 14,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}")
+                .Enrich.FromLogContext()
+                .CreateLogger();
+        }
+
         private void RegisterExceptionHandlers()
         {
             DispatcherUnhandledException += (_, args) =>
             {
                 Log.Error(args.Exception, "Unhandled UI exception");
-                // Mark as handled to prevent app crash - log and continue
                 args.Handled = true;
-                // Only shutdown for truly fatal errors, not routine exceptions
             };
 
             TaskScheduler.UnobservedTaskException += (_, args) =>
@@ -147,9 +161,26 @@ namespace costats.App
             {
                 if (args.ExceptionObject is Exception ex)
                 {
-                    Log.Error(ex, "Unhandled domain exception");
+                    Log.Fatal(ex, "Unhandled domain exception (IsTerminating={IsTerminating})", args.IsTerminating);
+                    Log.CloseAndFlush();
                 }
             };
+
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                Log.CloseAndFlush();
+            };
+        }
+
+        /// <summary>
+        /// Observes a fire-and-forget task so exceptions are logged instead
+        /// of silently swallowed or deferred to the finalizer.
+        /// </summary>
+        private static void LogFireAndForget(Task task, string operationName)
+        {
+            task.ContinueWith(
+                t => Log.Error(t.Exception!.GetBaseException(), "Background task {Operation} faulted", operationName),
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
         }
 
         private TrayHost InitializeHost(ISettingsStore settingsStore, AppSettings settings)
@@ -207,6 +238,9 @@ namespace costats.App
                 .Build();
 
             _host.Start();
+
+            var lifetime = _host.Services.GetRequiredService<IHostApplicationLifetime>();
+            lifetime.ApplicationStopping.Register(() => Log.Warning("Host is stopping"));
 
             _ = _host.Services.GetRequiredService<HotkeyService>();
             return _host.Services.GetRequiredService<TrayHost>();

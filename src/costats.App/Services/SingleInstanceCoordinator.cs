@@ -1,4 +1,3 @@
-using System.IO;
 using System.IO.Pipes;
 using System.Security.Principal;
 
@@ -33,34 +32,42 @@ public sealed class SingleInstanceCoordinator : IDisposable
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token);
         _listenerTask = Task.Run(async () =>
         {
-            while (!linkedCts.IsCancellationRequested)
+            try
             {
-                using var server = new NamedPipeServerStream(
-                    PipeName,
-                    PipeDirection.In,
-                    1,
-                    PipeTransmissionMode.Message,
-                    PipeOptions.Asynchronous);
-
-                try
+                while (!linkedCts.IsCancellationRequested)
                 {
-                    await server.WaitForConnectionAsync(linkedCts.Token).ConfigureAwait(false);
-                    using var reader = new StreamReader(server);
-                    var line = await reader.ReadLineAsync().WaitAsync(linkedCts.Token).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(line) &&
-                        Enum.TryParse(line, ignoreCase: true, out ActivationMessage message))
+                    using var server = new NamedPipeServerStream(
+                        PipeName,
+                        PipeDirection.In,
+                        1,
+                        PipeTransmissionMode.Message,
+                        PipeOptions.Asynchronous);
+
+                    try
                     {
-                        await onActivation(message).ConfigureAwait(false);
+                        await server.WaitForConnectionAsync(linkedCts.Token).ConfigureAwait(false);
+                        using var reader = new StreamReader(server);
+                        var line = await reader.ReadLineAsync().WaitAsync(linkedCts.Token).ConfigureAwait(false);
+                        if (!string.IsNullOrWhiteSpace(line) &&
+                            Enum.TryParse(line, ignoreCase: true, out ActivationMessage message))
+                        {
+                            await onActivation(message).ConfigureAwait(false);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Named pipe listener error");
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch
-                {
-                    // Swallow and keep listening.
-                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Named pipe listener crashed");
+                throw;
             }
         }, linkedCts.Token);
 

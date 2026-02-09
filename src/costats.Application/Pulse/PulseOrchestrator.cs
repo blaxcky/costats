@@ -167,31 +167,43 @@ public sealed class PulseOrchestrator : BackgroundService, IPulseOrchestrator
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await RefreshOnceAsync(RefreshTrigger.Initial, stoppingToken).ConfigureAwait(false);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            TimeSpan currentInterval;
-            lock (_intervalLock)
-            {
-                currentInterval = _refreshInterval;
-                _timerCts?.Dispose();
-                _timerCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            }
+            await RefreshOnceAsync(RefreshTrigger.Initial, stoppingToken).ConfigureAwait(false);
 
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                using var timer = new PeriodicTimer(currentInterval);
-                while (await timer.WaitForNextTickAsync(_timerCts.Token).ConfigureAwait(false))
+                TimeSpan currentInterval;
+                lock (_intervalLock)
                 {
-                    await RefreshOnceAsync(RefreshTrigger.Scheduled, _timerCts.Token).ConfigureAwait(false);
+                    currentInterval = _refreshInterval;
+                    _timerCts?.Dispose();
+                    _timerCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                }
+
+                try
+                {
+                    using var timer = new PeriodicTimer(currentInterval);
+                    while (await timer.WaitForNextTickAsync(_timerCts.Token).ConfigureAwait(false))
+                    {
+                        await RefreshOnceAsync(RefreshTrigger.Scheduled, _timerCts.Token).ConfigureAwait(false);
+                    }
+                }
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+                {
+                    // Timer was cancelled due to interval change, restart with new interval
+                    _logger.LogDebug("Restarting timer with new interval");
                 }
             }
-            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
-            {
-                // Timer was cancelled due to interval change, restart with new interval
-                _logger.LogDebug("Restarting timer with new interval");
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Normal shutdown
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(ex, "PulseOrchestrator crashed");
+            throw;
         }
     }
 

@@ -1,13 +1,5 @@
 using System.Drawing;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Controls;
-using H.NotifyIcon;
-using costats.App.ViewModels;
-using costats.Application.Pulse;
-using costats.Core.Pulse;
-using Microsoft.Win32;
 
 namespace costats.App.Services
 {
@@ -147,7 +139,9 @@ namespace costats.App.Services
             // Silent refresh for the currently selected provider when panel opens
             if (!wasVisible)
             {
-                _ = RefreshSelectedProviderAsync();
+                _ = RefreshSelectedProviderAsync().ContinueWith(
+                    t => Log.Warning(t.Exception!.GetBaseException(), "Silent provider refresh failed"),
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
             }
         }
 

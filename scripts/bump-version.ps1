@@ -106,7 +106,7 @@ if ($Bump) {
 }
 
 if ($newVersion -eq $oldVersion) {
-    Write-Host "Version is already $oldVersion — nothing to do." -ForegroundColor Yellow
+    Write-Host "Version is already $oldVersion - nothing to do." -ForegroundColor Yellow
     exit 0
 }
 
