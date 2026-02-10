@@ -15,9 +15,9 @@
     <Company>fmdz</Company>
     <Authors>fmdz</Authors>
     <Copyright>Copyright (c) 2026 fmdz</Copyright>
-    <RepositoryUrl>https://github.com/fmdz387/costats</RepositoryUrl>
+    <RepositoryUrl>https://github.com/blaxcky/costats</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageProjectUrl>https://github.com/fmdz387/costats</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/blaxcky/costats</PackageProjectUrl>
 
     <!-- Publishing configuration -->
     <PublishSingleFile>true</PublishSingleFile>

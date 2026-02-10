@@ -21,13 +21,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/fmdz387/costats.git",
+    "url": "https://github.com/blaxcky/costats.git",
     "directory": "tools/insights-cli"
   },
   "bugs": {
-    "url": "https://github.com/fmdz387/costats/issues"
+    "url": "https://github.com/blaxcky/costats/issues"
   },
-  "homepage": "https://github.com/fmdz387/costats#readme",
+  "homepage": "https://github.com/blaxcky/costats#readme",
   "publishConfig": {
     "access": "public"
   },
